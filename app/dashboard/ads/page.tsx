@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/lib/auth";
 import { getApiUrl } from "@/lib/api-config";
-import { Save, X, Plus, Trash2 } from "lucide-react";
+import { Save, X, Plus, Trash2, ArrowRight } from "lucide-react";
 
 interface Ad {
   id?: string;
@@ -383,28 +383,73 @@ function AdForm({
 }
 
 function AdPreview({ ad }: { ad: Ad }) {
+  const isSecondary = ad.position === "secondary";
+
   return (
     <div
-      className={`p-6 rounded-lg ${ad.position === "primary" ? "bg-primary-600" : "bg-zinc-900"}`}
+      className={`relative overflow-hidden rounded-[2rem] shadow-2xl ${
+        isSecondary ? "bg-zinc-900 text-white" : "bg-primary-600 text-white"
+      }`}
     >
-      <div className="text-white">
-        <div className="mb-2">
-          <span className="inline-block px-2 py-1 text-xs font-bold uppercase bg-white/10 rounded-full">
-            Sponsored Partnership
-          </span>
+      <div className="flex flex-col lg:flex-row items-stretch min-h-[300px] sm:min-h-[360px]">
+        {/* Content Side */}
+        <div className="flex-1 p-8 sm:p-10 lg:p-16 flex flex-col justify-center gap-6 z-10 transition-transform group">
+          <div className="space-y-4">
+            <span
+              className={`inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-[0.2em] uppercase border ${
+                isSecondary
+                  ? "bg-white/5 text-white/60 border-white/10"
+                  : "bg-black/5 text-white/80 border-black/10"
+              }`}
+            >
+              Sponsored Partnership
+            </span>
+            <h2 className="text-3xl font-bold leading-tight tracking-tight">
+              {ad.title}
+            </h2>
+            <p
+              className={`text-base font-light leading-relaxed max-w-xl ${
+                isSecondary ? "text-zinc-400" : "text-primary-100"
+              }`}
+            >
+              {ad.description}
+            </p>
+          </div>
+
+          <div>
+            <button
+              className={`inline-flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-base transition-all duration-300 ${
+                isSecondary
+                  ? "bg-white text-zinc-950 hover:bg-zinc-100"
+                  : "bg-zinc-950 text-white hover:bg-black shadow-xl shadow-black/20"
+              }`}
+            >
+              {ad.buttonText}
+              <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            </button>
+          </div>
         </div>
-        <h4 className="text-2xl font-bold mb-2">{ad.title}</h4>
-        <p className="text-white/80 mb-4">{ad.description}</p>
-        <button
-          className={`px-6 py-3 rounded-lg font-bold ${
-            ad.position === "primary"
-              ? "bg-zinc-950 text-white"
-              : "bg-white text-zinc-950"
-          }`}
-        >
-          {ad.buttonText}
-        </button>
+
+        {/* Image Side */}
+        <div className="relative flex-1 min-h-[300px] lg:min-h-auto overflow-hidden">
+          <div
+            className={`absolute inset-0 z-10 lg:block hidden bg-gradient-to-r ${
+              isSecondary ? "from-zinc-900" : "from-primary-600"
+            } via-transparent to-transparent`}
+          />
+          {ad.imageSrc && (
+            <img
+              src={ad.imageSrc}
+              alt={ad.title}
+              className="object-cover w-full h-full object-center transition-transform hover:scale-110 duration-[3000ms]"
+            />
+          )}
+        </div>
       </div>
+
+      {/* Decorative Elements */}
+      <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-64 h-64 bg-black/5 rounded-full blur-2xl pointer-events-none" />
     </div>
   );
 }
