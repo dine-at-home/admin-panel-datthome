@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/lib/auth";
 import { getApiUrl } from "@/lib/api-config";
+import ImageUploader from "@/components/ImageUploader";
 import { Save, X, Plus, Trash2, ArrowRight } from "lucide-react";
 
 interface Ad {
@@ -234,6 +235,7 @@ export default function AdsPage() {
                   onSave={handleSave}
                   onCancel={() => setEditingAd(null)}
                   isSaving={isSaving}
+                  existingAds={ads}
                 />
               ) : (
                 <AdPreview ad={ad} />
@@ -251,11 +253,13 @@ function AdForm({
   onSave,
   onCancel,
   isSaving,
+  existingAds,
 }: {
   ad: Ad;
   onSave: (ad: Ad) => void;
   onCancel: () => void;
   isSaving: boolean;
+  existingAds: Ad[];
 }) {
   const [formData, setFormData] = useState<Ad>(ad);
 
@@ -323,16 +327,12 @@ function AdForm({
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Image URL
+          Ad Image
         </label>
-        <input
-          type="text"
-          value={formData.imageSrc}
-          onChange={(e) =>
-            setFormData({ ...formData, imageSrc: e.target.value })
-          }
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-          required
+        <ImageUploader
+          currentImage={formData.imageSrc}
+          onImageSelect={(url) => setFormData({ ...formData, imageSrc: url })}
+          existingAds={existingAds}
         />
       </div>
       <div className="flex items-center">
@@ -441,7 +441,7 @@ function AdPreview({ ad }: { ad: Ad }) {
             <img
               src={ad.imageSrc}
               alt={ad.title}
-              className="object-cover w-full h-full object-center transition-transform hover:scale-110 duration-[3000ms]"
+              className="absolute inset-0 object-cover w-full h-full object-center transition-transform hover:scale-110 duration-[3000ms]"
             />
           )}
         </div>
