@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authService } from '@/lib/auth'
 import { getApiUrl } from '@/lib/api-config'
-import { Save, X, Plus, Trash2 } from 'lucide-react'
+import { Save, X, Plus, Trash2, Upload } from 'lucide-react'
 
 interface Ad {
   id?: string
@@ -143,7 +143,7 @@ export default function AdsPage() {
     }
   }
 
-  const currentAd = editingAd || ads.find((a) => a.position === editingAd?.position)
+  const currentAd = undefined // Removed unused check to fix type error
 
   if (loading) {
     return (
@@ -241,6 +241,43 @@ function AdForm({
   isSaving: boolean
 }) {
   const [formData, setFormData] = useState<Ad>(ad)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploading(true)
+      setUploadError('')
+
+      const body = new FormData()
+      body.append('image', file)
+
+      const token = authService.getToken()
+      const response = await fetch(getApiUrl('/upload/image'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to upload image')
+      }
+
+      setFormData({ ...formData, imageSrc: result.data.url })
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed')
+      console.error('Upload error:', err)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -256,7 +293,7 @@ function AdForm({
           type="text"
           value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-gray-900"
           required
         />
       </div>
@@ -266,7 +303,7 @@ function AdForm({
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-gray-900"
           required
         />
       </div>
@@ -277,7 +314,7 @@ function AdForm({
             type="text"
             value={formData.buttonText}
             onChange={(e) => setFormData({ ...formData, buttonText: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-gray-900"
             required
           />
         </div>
@@ -287,20 +324,47 @@ function AdForm({
             type="text"
             value={formData.link}
             onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-gray-900"
             required
           />
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-        <input
-          type="text"
-          value={formData.imageSrc}
-          onChange={(e) => setFormData({ ...formData, imageSrc: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-          required
-        />
+        <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+        <div className="flex items-start space-x-4">
+          <div className="relative h-24 w-40 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
+            {formData.imageSrc ? (
+              <img src={formData.imageSrc} alt="Preview" className="h-full w-full object-cover" />
+            ) : (
+              <Upload className="h-8 w-8 text-gray-400" />
+            )}
+            {uploading && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center space-x-2">
+              <label className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
+                <Upload className="h-4 w-4 mr-2" />
+                {uploading ? 'Uploading...' : 'Upload Image'}
+                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+              </label>
+            </div>
+            <p className="text-xs text-gray-500">
+              Recommended size: 1200x400px. URL will be updated automatically.
+            </p>
+            <input
+              type="text"
+              value={formData.imageSrc}
+              onChange={(e) => setFormData({ ...formData, imageSrc: e.target.value })}
+              className="w-full px-3 py-1 border border-gray-300 rounded-md text-xs text-gray-900"
+              placeholder="Or enter image URL manually"
+            />
+            {uploadError && <p className="text-xs text-red-600 font-medium">{uploadError}</p>}
+          </div>
+        </div>
       </div>
       <div className="flex items-center">
         <input
@@ -324,7 +388,7 @@ function AdForm({
         </button>
         <button
           type="submit"
-          disabled={isSaving}
+          disabled={isSaving || uploading}
           className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSaving ? (
@@ -356,9 +420,8 @@ function AdPreview({ ad }: { ad: Ad }) {
         <h4 className="text-2xl font-bold mb-2">{ad.title}</h4>
         <p className="text-white/80 mb-4">{ad.description}</p>
         <button
-          className={`px-6 py-3 rounded-lg font-bold ${
-            ad.position === 'primary' ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-950'
-          }`}
+          className={`px-6 py-3 rounded-lg font-bold ${ad.position === 'primary' ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-950'
+            }`}
         >
           {ad.buttonText}
         </button>

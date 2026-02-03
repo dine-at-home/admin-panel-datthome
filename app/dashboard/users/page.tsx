@@ -24,6 +24,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('')
+  const [blockedOnly, setBlockedOnly] = useState(false)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [error, setError] = useState('')
@@ -34,7 +35,7 @@ export default function UsersPage() {
       return
     }
     fetchUsers()
-  }, [router, page, search, roleFilter])
+  }, [router, page, search, roleFilter, blockedOnly])
 
   const fetchUsers = async () => {
     try {
@@ -46,6 +47,7 @@ export default function UsersPage() {
         limit: '20',
         ...(search && { search }),
         ...(roleFilter && { role: roleFilter }),
+        ...(blockedOnly && { blocked: 'true' }),
       })
 
       const response = await fetch(getApiUrl(`/admin/users?${params}`), { headers })
@@ -150,13 +152,28 @@ export default function UsersPage() {
               setRoleFilter(e.target.value)
               setPage(1)
             }}
-            className="px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="">All Roles</option>
             <option value="guest">Guest</option>
             <option value="host">Host</option>
             <option value="admin">Admin</option>
           </select>
+        </div>
+        <div className="mt-4 flex items-center">
+          <input
+            type="checkbox"
+            id="blockedOnly"
+            checked={blockedOnly}
+            onChange={(e) => {
+              setBlockedOnly(e.target.checked)
+              setPage(1)
+            }}
+            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
+          />
+          <label htmlFor="blockedOnly" className="ml-2 block text-sm text-gray-900 cursor-pointer">
+            Show blocked users only
+          </label>
         </div>
       </div>
 
@@ -183,13 +200,12 @@ export default function UsersPage() {
                           {user.name || 'No name'}
                         </p>
                         <span
-                          className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === 'admin'
+                          className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin'
                               ? 'bg-purple-100 text-purple-800'
                               : user.role === 'host'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
                         >
                           {user.role}
                         </span>
@@ -211,11 +227,10 @@ export default function UsersPage() {
                     <div className="flex items-center space-x-2 ml-4">
                       <button
                         onClick={() => handleBlock(user.id, !user.blocked)}
-                        className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md ${
-                          user.blocked
+                        className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md ${user.blocked
                             ? 'text-green-700 bg-green-100 hover:bg-green-200'
                             : 'text-red-700 bg-red-100 hover:bg-red-200'
-                        }`}
+                          }`}
                       >
                         <Ban className="h-3 w-3 mr-1" />
                         {user.blocked ? 'Unblock' : 'Block'}

@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { authService } from '@/lib/auth'
-import { Users, UtensilsCrossed, Megaphone, LogOut, Home } from 'lucide-react'
+import { Users, UtensilsCrossed, Megaphone, LogOut, Home, Banknote } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
@@ -29,6 +29,7 @@ export default function DashboardLayout({
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/dashboard/users', label: 'Users', icon: Users },
     { href: '/dashboard/dinners', label: 'Dinners', icon: UtensilsCrossed },
+    { href: '/dashboard/payouts', label: 'Payouts', icon: Banknote },
     { href: '/dashboard/ads', label: 'Ads', icon: Megaphone },
   ]
 
@@ -52,11 +53,10 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
-                    isActive
+                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${isActive
                       ? 'bg-primary-100 text-primary-900'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
                   {item.label}
