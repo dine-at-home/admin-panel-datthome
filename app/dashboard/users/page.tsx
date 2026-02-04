@@ -1,118 +1,128 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { authService } from '@/lib/auth'
-import { getApiUrl } from '@/lib/api-config'
-import { Trash2, Ban, CheckCircle, Search, X } from 'lucide-react'
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { authService } from "@/lib/auth";
+import { getApiUrl } from "@/lib/api-config";
+import { Trash2, Ban, CheckCircle, Search, X } from "lucide-react";
 
 interface User {
-  id: string
-  email: string
-  name: string | null
-  role: string
-  emailVerified: boolean
-  blocked: boolean
-  dinnerCount: number
-  bookingCount: number
-  createdAt: string
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  emailVerified: boolean;
+  blocked: boolean;
+  dinnerCount: number;
+  bookingCount: number;
+  createdAt: string;
 }
 
 export default function UsersPage() {
-  const router = useRouter()
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState<string>('')
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [error, setError] = useState('')
+  const router = useRouter();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
-      router.push('/login')
-      return
+      router.push("/login");
+      return;
     }
-    fetchUsers()
-  }, [router, page, search, roleFilter])
+    fetchUsers();
+  }, [router, page, search, roleFilter]);
 
   const fetchUsers = async () => {
     try {
-      setLoading(true)
-      setError('')
-      const headers = authService.getAuthHeaders()
+      setLoading(true);
+      setError("");
+      const headers = authService.getAuthHeaders();
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: '20',
+        limit: "20",
         ...(search && { search }),
         ...(roleFilter && { role: roleFilter }),
-      })
+      });
 
-      const response = await fetch(getApiUrl(`/admin/users?${params}`), { headers })
-      const data = await response.json()
+      const response = await fetch(getApiUrl(`/admin/users?${params}`), {
+        headers,
+      });
+      const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to fetch users')
+        throw new Error(data.error || "Failed to fetch users");
       }
 
-      setUsers(data.data || [])
-      setTotalPages(data.pagination?.totalPages || 1)
+      setUsers(data.data || []);
+      setTotalPages(data.pagination?.totalPages || 1);
     } catch (err: any) {
-      setError(err.message || 'Failed to load users')
-      console.error('Error fetching users:', err)
+      setError(err.message || "Failed to load users");
+      console.error("Error fetching users:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleBlock = async (userId: string, blocked: boolean) => {
-    if (!confirm(`Are you sure you want to ${blocked ? 'block' : 'unblock'} this user?`)) {
-      return
+    if (
+      !confirm(
+        `Are you sure you want to ${blocked ? "block" : "unblock"} this user?`,
+      )
+    ) {
+      return;
     }
 
     try {
-      const headers = authService.getAuthHeaders()
+      const headers = authService.getAuthHeaders();
       const response = await fetch(getApiUrl(`/admin/users/${userId}/block`), {
-        method: 'PUT',
+        method: "PUT",
         headers,
         body: JSON.stringify({ blocked }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to update user')
+        throw new Error(data.error || "Failed to update user");
       }
 
-      fetchUsers()
+      fetchUsers();
     } catch (err: any) {
-      alert(err.message || 'Failed to update user')
+      alert(err.message || "Failed to update user");
     }
-  }
+  };
 
   const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      return
+    if (
+      !confirm(
+        "Are you sure you want to delete this user? This action cannot be undone.",
+      )
+    ) {
+      return;
     }
 
     try {
-      const headers = authService.getAuthHeaders()
+      const headers = authService.getAuthHeaders();
       const response = await fetch(getApiUrl(`/admin/users/${userId}`), {
-        method: 'DELETE',
+        method: "DELETE",
         headers,
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to delete user')
+        throw new Error(data.error || "Failed to delete user");
       }
 
-      fetchUsers()
+      fetchUsers();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete user')
+      alert(err.message || "Failed to delete user");
     }
-  }
+  };
 
   return (
     <div>
@@ -130,14 +140,14 @@ export default function UsersPage() {
               placeholder="Search by email or name..."
               value={search}
               onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
+                setSearch(e.target.value);
+                setPage(1);
               }}
               className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
             />
             {search && (
               <button
-                onClick={() => setSearch('')}
+                onClick={() => setSearch("")}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 <X className="h-4 w-4" />
@@ -147,8 +157,8 @@ export default function UsersPage() {
           <select
             value={roleFilter}
             onChange={(e) => {
-              setRoleFilter(e.target.value)
-              setPage(1)
+              setRoleFilter(e.target.value);
+              setPage(1);
             }}
             className="px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
           >
@@ -175,20 +185,24 @@ export default function UsersPage() {
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <ul className="divide-y divide-gray-200">
               {users.map((user) => (
-                <li key={user.id} className="px-6 py-4">
+                <li
+                  key={user.id}
+                  className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => router.push(`/dashboard/users/${user.id}`)}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {user.name || 'No name'}
+                          {user.name || "No name"}
                         </p>
                         <span
                           className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === 'admin'
-                              ? 'bg-purple-100 text-purple-800'
-                              : user.role === 'host'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-800'
+                            user.role === "admin"
+                              ? "bg-purple-100 text-purple-800"
+                              : user.role === "host"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-gray-100 text-gray-800"
                           }`}
                         >
                           {user.role}
@@ -202,27 +216,36 @@ export default function UsersPage() {
                           <CheckCircle className="ml-2 h-4 w-4 text-green-500" />
                         )}
                       </div>
-                      <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                      <p className="text-sm text-gray-500 truncate">
+                        {user.email}
+                      </p>
                       <p className="text-xs text-gray-400 mt-1">
-                        {user.dinnerCount} dinners • {user.bookingCount} bookings • Joined{' '}
+                        {user.dinnerCount} dinners • {user.bookingCount}{" "}
+                        bookings • Joined{" "}
                         {new Date(user.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="flex items-center space-x-2 ml-4">
                       <button
-                        onClick={() => handleBlock(user.id, !user.blocked)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBlock(user.id, !user.blocked);
+                        }}
                         className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md ${
                           user.blocked
-                            ? 'text-green-700 bg-green-100 hover:bg-green-200'
-                            : 'text-red-700 bg-red-100 hover:bg-red-200'
+                            ? "text-green-700 bg-green-100 hover:bg-green-200"
+                            : "text-red-700 bg-red-100 hover:bg-red-200"
                         }`}
                       >
                         <Ban className="h-3 w-3 mr-1" />
-                        {user.blocked ? 'Unblock' : 'Block'}
+                        {user.blocked ? "Unblock" : "Block"}
                       </button>
                       <button
-                        onClick={() => handleDelete(user.id)}
-                        disabled={user.role === 'admin'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(user.id);
+                        }}
+                        disabled={user.role === "admin"}
                         className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
@@ -266,5 +289,5 @@ export default function UsersPage() {
         </>
       )}
     </div>
-  )
+  );
 }
