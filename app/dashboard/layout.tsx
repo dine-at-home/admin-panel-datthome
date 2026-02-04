@@ -1,40 +1,55 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import Link from 'next/link'
-import { authService } from '@/lib/auth'
-import { Users, UtensilsCrossed, Megaphone, LogOut, Home, Banknote } from 'lucide-react'
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { authService } from "@/lib/auth";
+import {
+  Users,
+  UtensilsCrossed,
+  Megaphone,
+  LogOut,
+  Home,
+  Banknote,
+  Ticket,
+} from "lucide-react";
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const router = useRouter()
-  const pathname = usePathname()
+  const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
+    setIsMounted(true);
     if (!authService.isAuthenticated()) {
-      router.push('/login')
+      router.push("/login"); // Redirect if not authenticated
     }
-  }, [router])
+  }, [router]);
 
-  const handleLogout = () => {
-    authService.removeToken()
-    router.push('/login')
+  if (!isMounted) {
+    return null; // Prevent hydration mismatch
   }
 
+  const handleLogout = () => {
+    authService.removeToken();
+    router.push("/login");
+  };
+
   const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: Home },
-    { href: '/dashboard/users', label: 'Users', icon: Users },
-    { href: '/dashboard/dinners', label: 'Dinners', icon: UtensilsCrossed },
-    { href: '/dashboard/payouts', label: 'Payouts', icon: Banknote },
-    { href: '/dashboard/ads', label: 'Ads', icon: Megaphone },
-  ]
+    { href: "/dashboard", label: "Dashboard", icon: Home },
+    { href: "/dashboard/users", label: "Users", icon: Users },
+    { href: "/dashboard/dinners", label: "Dinners", icon: UtensilsCrossed },
+    { href: "/dashboard/bookings", label: "Bookings", icon: Ticket },
+    { href: "/dashboard/payouts", label: "Payouts", icon: Banknote },
+    { href: "/dashboard/ads", label: "Ads", icon: Megaphone },
+  ];
 
   if (!authService.isAuthenticated()) {
-    return null
+    return null;
   }
 
   return (
@@ -47,21 +62,22 @@ export default function DashboardLayout({
           </div>
           <nav className="flex-1 px-2 py-4 space-y-1">
             {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${isActive
-                      ? 'bg-primary-100 text-primary-900'
-                      : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                    isActive
+                      ? "bg-primary-100 text-primary-900"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
                 >
                   <Icon className="mr-3 h-5 w-5" />
                   {item.label}
                 </Link>
-              )
+              );
             })}
           </nav>
           <div className="p-4 border-t">
@@ -81,5 +97,5 @@ export default function DashboardLayout({
         <main className="p-8">{children}</main>
       </div>
     </div>
-  )
+  );
 }
