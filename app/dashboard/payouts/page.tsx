@@ -28,18 +28,18 @@ interface Payout {
     id: string
     name: string | null
     email: string
-    bankName: string | null
     accountHolderName: string | null
-    iban: string | null
-    swiftBic: string | null
     payoutAddress: string | null
+    payoutCardBrand: string | null
+    payoutCardLast4: string | null
+    paystraxCardRegistrationId: string | null
     kycStatus?: string
     payoutDebt?: number
   }
   bookingIds: string[]
   heldReason?: string | null
   failureMessage?: string | null
-  paystraxDisbursementId?: string | null
+  paystraxPayoutPaymentId?: string | null
   scheduledFor?: string | null
   arrivalDate?: string | null
   createdAt: string
@@ -302,24 +302,21 @@ export default function PayoutsPage() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <Building className="w-4 h-4" />
-                        Bank Details
+                        Payout Card
                       </div>
                       <div className="text-sm space-y-1">
                         <p>
-                          <span className="text-gray-500">Bank:</span>{' '}
-                          {payout.host.bankName || 'N/A'}
-                        </p>
-                        <p>
-                          <span className="text-gray-500">IBAN:</span>{' '}
-                          {payout.host.iban || 'N/A'}
-                        </p>
-                        <p>
-                          <span className="text-gray-500">SWIFT:</span>{' '}
-                          {payout.host.swiftBic || 'N/A'}
+                          <span className="text-gray-500">Card:</span>{' '}
+                          {payout.host.payoutCardBrand || 'N/A'} ••••{' '}
+                          {payout.host.payoutCardLast4 || '????'}
                         </p>
                         <p>
                           <span className="text-gray-500">Holder:</span>{' '}
                           {payout.host.accountHolderName || 'N/A'}
+                        </p>
+                        <p className="font-mono text-xs text-gray-400 truncate">
+                          <span className="text-gray-500 font-sans">Token:</span>{' '}
+                          {payout.host.paystraxCardRegistrationId || 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -383,8 +380,8 @@ export default function PayoutsPage() {
 
                   <div className="px-6 py-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-400">
                     Payout ID: {payout.id}
-                    {payout.paystraxDisbursementId && (
-                      <> • Paystrax: {payout.paystraxDisbursementId}</>
+                    {payout.paystraxPayoutPaymentId && (
+                      <> • Paystrax: {payout.paystraxPayoutPaymentId}</>
                     )}
                     {payout.bookingIds?.length ? <> • Bookings: {payout.bookingIds.join(', ')}</> : null}
                   </div>

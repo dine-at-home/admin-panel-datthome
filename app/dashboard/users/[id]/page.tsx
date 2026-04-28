@@ -33,11 +33,11 @@ interface UserDetails {
     blocked: boolean;
     createdAt: string;
     updatedAt: string;
-    bankName: string | null;
     accountHolderName: string | null;
-    iban: string | null;
-    swiftBic: string | null;
     payoutAddress: string | null;
+    payoutCardBrand: string | null;
+    payoutCardLast4: string | null;
+    hasCardRegistered: boolean;
   };
   statistics: {
     totalDinners: number;
@@ -243,37 +243,34 @@ export default function UserDetailPage() {
           )}
         </div>
 
-        {/* Bank Details (if host) */}
-        {user.role === "host" && (user.bankName || user.iban) && (
+        {/* Payout details (if host) */}
+        {user.role === "host" && (user.hasCardRegistered || user.accountHolderName) && (
           <div className="mt-4 pt-4 border-t">
             <h3 className="text-sm font-medium text-gray-700 mb-2">
-              Bank Details
+              Payout Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              {user.bankName && (
-                <div>
-                  <span className="text-gray-500">Bank:</span>
-                  <span className="ml-2 text-gray-900">{user.bankName}</span>
-                </div>
-              )}
               {user.accountHolderName && (
                 <div>
-                  <span className="text-gray-500">Account Holder:</span>
+                  <span className="text-gray-500">Cardholder:</span>
                   <span className="ml-2 text-gray-900">
                     {user.accountHolderName}
                   </span>
                 </div>
               )}
-              {user.iban && (
+              {user.hasCardRegistered && (
                 <div>
-                  <span className="text-gray-500">IBAN:</span>
-                  <span className="ml-2 text-gray-900">{user.iban}</span>
+                  <span className="text-gray-500">Card:</span>
+                  <span className="ml-2 text-gray-900">
+                    {user.payoutCardBrand || 'Card'} ••••{' '}
+                    {user.payoutCardLast4 || '????'}
+                  </span>
                 </div>
               )}
-              {user.swiftBic && (
-                <div>
-                  <span className="text-gray-500">SWIFT/BIC:</span>
-                  <span className="ml-2 text-gray-900">{user.swiftBic}</span>
+              {user.payoutAddress && (
+                <div className="md:col-span-2">
+                  <span className="text-gray-500">Address:</span>
+                  <span className="ml-2 text-gray-900">{user.payoutAddress}</span>
                 </div>
               )}
             </div>
