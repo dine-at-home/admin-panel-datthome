@@ -1,313 +1,250 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { authService } from "@/lib/auth";
-import { getApiUrl } from "@/lib/api-config";
-import { Trash2, Ban, CheckCircle, Search, X } from "lucide-react";
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { authService } from '@/lib/auth'
+import { getApiUrl } from '@/lib/api-config'
+import { Trash2, Ban, CheckCircle, Search, X, Users } from 'lucide-react'
 
 interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  role: string;
-  emailVerified: boolean;
-  blocked: boolean;
-  dinnerCount: number;
-  bookingCount: number;
-  createdAt: string;
+  id: string
+  email: string
+  name: string | null
+  role: string
+  emailVerified: boolean
+  blocked: boolean
+  dinnerCount: number
+  bookingCount: number
+  createdAt: string
+}
+
+const ROLE_STYLES: Record<string, string> = {
+  admin: 'bg-purple-50 text-purple-700',
+  host:  'bg-blue-50 text-blue-700',
+  guest: 'bg-slate-100 text-slate-600',
 }
 
 export default function UsersPage() {
-  const router = useRouter();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("");
-  const [blockedOnly, setBlockedOnly] = useState(false);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [error, setError] = useState("");
+  const router = useRouter()
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [blockedOnly, setBlockedOnly] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!authService.isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
-    fetchUsers();
-  }, [router, page, search, roleFilter, blockedOnly]);
+    if (!authService.isAuthenticated()) { router.push('/login'); return }
+    fetchUsers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, page, search, roleFilter, blockedOnly])
 
   const fetchUsers = async () => {
     try {
-      setLoading(true);
-      setError("");
-      const headers = authService.getAuthHeaders();
+      setLoading(true)
+      setError('')
+      const headers = authService.getAuthHeaders()
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: "20",
+        limit: '25',
         ...(search && { search }),
         ...(roleFilter && { role: roleFilter }),
-        ...(blockedOnly && { blocked: "true" }),
-      });
-
-      const response = await fetch(getApiUrl(`/admin/users?${params}`), {
-        headers,
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to fetch users");
-      }
-
-      setUsers(data.data || []);
-      setTotalPages(data.pagination?.totalPages || 1);
-    } catch (err: any) {
-      setError(err.message || "Failed to load users");
-      console.error("Error fetching users:", err);
+        ...(blockedOnly && { blocked: 'true' }),
+      })
+      const res = await fetch(getApiUrl(`/admin/users?${params}`), { headers })
+      if (res.status === 401) { authService.removeToken(); router.push('/login'); return }
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Failed to fetch')
+      setUsers(data.data || [])
+      setTotalPages(data.pagination?.totalPages || 1)
+      setTotal(data.pagination?.total || 0)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load users')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleBlock = async (userId: string, blocked: boolean) => {
-    if (
-      !confirm(
-        `Are you sure you want to ${blocked ? "block" : "unblock"} this user?`,
-      )
-    ) {
-      return;
-    }
-
+    if (!confirm(`${blocked ? 'Block' : 'Unblock'} this user?`)) return
     try {
-      const headers = authService.getAuthHeaders();
-      const response = await fetch(getApiUrl(`/admin/users/${userId}/block`), {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ blocked }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to update user");
-      }
-
-      fetchUsers();
-    } catch (err: any) {
-      alert(err.message || "Failed to update user");
+      const headers = { ...authService.getAuthHeaders(), 'Content-Type': 'application/json' }
+      const res = await fetch(getApiUrl(`/admin/users/${userId}/block`), {
+        method: 'PUT', headers, body: JSON.stringify({ blocked }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Failed')
+      fetchUsers()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed')
     }
-  };
+  }
 
   const handleDelete = async (userId: string) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this user? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
-
+    if (!confirm('Delete this user? This cannot be undone.')) return
     try {
-      const headers = authService.getAuthHeaders();
-      const response = await fetch(getApiUrl(`/admin/users/${userId}`), {
-        method: "DELETE",
-        headers,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to delete user");
-      }
-
-      fetchUsers();
-    } catch (err: any) {
-      alert(err.message || "Failed to delete user");
+      const headers = authService.getAuthHeaders()
+      const res = await fetch(getApiUrl(`/admin/users/${userId}`), { method: 'DELETE', headers })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Failed')
+      fetchUsers()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed')
     }
-  };
+  }
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Users</h1>
+        <p className="text-sm text-slate-500 mt-0.5">{total} total</p>
       </div>
 
       {/* Filters */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <input
-              type="text"
-              placeholder="Search by email or name..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <select
-            value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value);
-              setPage(1);
-            }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option value="">All Roles</option>
-            <option value="guest">Guest</option>
-            <option value="host">Host</option>
-            <option value="admin">Admin</option>
-          </select>
+      <div className="bg-white border border-slate-100 rounded-xl shadow-sm p-4 mb-4 flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search name or email…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+            </button>
+          )}
         </div>
-        <div className="mt-4 flex items-center">
+        <select
+          value={roleFilter}
+          onChange={(e) => { setRoleFilter(e.target.value); setPage(1) }}
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 bg-white"
+        >
+          <option value="">All roles</option>
+          <option value="guest">Guest</option>
+          <option value="host">Host</option>
+          <option value="admin">Admin</option>
+        </select>
+        <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
           <input
             type="checkbox"
-            id="blockedOnly"
             checked={blockedOnly}
-            onChange={(e) => {
-              setBlockedOnly(e.target.checked);
-              setPage(1);
-            }}
-            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
+            onChange={(e) => { setBlockedOnly(e.target.checked); setPage(1) }}
+            className="w-4 h-4 accent-orange-500 rounded"
           />
-          <label
-            htmlFor="blockedOnly"
-            className="ml-2 block text-sm text-gray-900 cursor-pointer"
-          >
-            Show blocked users only
-          </label>
-        </div>
+          Blocked only
+        </label>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
-          {error}
-        </div>
+        <div className="mb-4 bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-        </div>
-      ) : (
-        <>
-          <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <ul className="divide-y divide-gray-200">
-              {users.map((user) => (
-                <li
-                  key={user.id}
-                  className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => router.push(`/dashboard/users/${user.id}`)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {user.name || "No name"}
-                        </p>
-                        <span
-                          className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === "admin"
-                              ? "bg-purple-100 text-purple-800"
-                              : user.role === "host"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {user.role}
-                        </span>
-                        {user.blocked && (
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            Blocked
-                          </span>
-                        )}
-                        {user.emailVerified && (
-                          <CheckCircle className="ml-2 h-4 w-4 text-green-500" />
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500 truncate">
-                        {user.email}
+      <div className="bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : users.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+            <Users className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm font-medium">No users found</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">User</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Role</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Dinners</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Bookings</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Joined</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {users.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3">
+                    <Link href={`/dashboard/users/${u.id}`} className="group">
+                      <p className="font-medium text-slate-800 group-hover:text-orange-500 transition-colors">
+                        {u.name || '—'}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {user.dinnerCount} dinners • {user.bookingCount}{" "}
-                        bookings • Joined{" "}
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2 ml-4">
+                      <p className="text-xs text-slate-400">{u.email}</p>
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${ROLE_STYLES[u.role] ?? 'bg-slate-100 text-slate-600'}`}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-700 tabular-nums">{u.dinnerCount}</td>
+                  <td className="px-4 py-3 text-right text-slate-700 tabular-nums">{u.bookingCount}</td>
+                  <td className="px-4 py-3 text-slate-500">{new Date(u.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3">
+                    {u.blocked ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Blocked
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Active
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleBlock(user.id, !user.blocked);
-                        }}
-                        className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md ${
-                          user.blocked
-                            ? "text-green-700 bg-green-100 hover:bg-green-200"
-                            : "text-red-700 bg-red-100 hover:bg-red-200"
+                        onClick={() => handleBlock(u.id, !u.blocked)}
+                        title={u.blocked ? 'Unblock' : 'Block'}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          u.blocked
+                            ? 'text-emerald-600 hover:bg-emerald-50'
+                            : 'text-amber-500 hover:bg-amber-50'
                         }`}
                       >
-                        <Ban className="h-3 w-3 mr-1" />
-                        {user.blocked ? "Unblock" : "Block"}
+                        {u.blocked ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(user.id);
-                        }}
-                        disabled={user.role === "admin"}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Delete
-                      </button>
+                      {u.role !== 'admin' && (
+                        <button
+                          onClick={() => handleDelete(u.id)}
+                          title="Delete"
+                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                  </div>
-                </li>
+                  </td>
+                </tr>
               ))}
-            </ul>
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-sm text-slate-500">Page {page} of {totalPages}</p>
+          <div className="flex gap-2">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors">
+              Previous
+            </button>
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors">
+              Next
+            </button>
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-6 flex items-center justify-between">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-gray-700">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          )}
-
-          {users.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No users found</p>
-            </div>
-          )}
-        </>
+        </div>
       )}
     </div>
-  );
+  )
 }

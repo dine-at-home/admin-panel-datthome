@@ -38,7 +38,6 @@ interface UserDetails {
     iban: string | null;
     swiftBic: string | null;
     payoutAddress: string | null;
-    stripeAccount: any;
   };
   statistics: {
     totalDinners: number;
@@ -338,7 +337,7 @@ export default function UserDetailPage() {
                 Total Earnings
               </p>
               <p className="text-2xl font-semibold text-gray-900">
-                €{(statistics.totalEarnings / 100).toFixed(2)}
+                kr {(statistics.totalEarnings / 100).toFixed(0)}
               </p>
             </div>
           </div>
@@ -507,7 +506,7 @@ export default function UserDetailPage() {
                             {booking.guests}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            €{booking.totalPrice}
+                            kr {booking.totalPrice}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
