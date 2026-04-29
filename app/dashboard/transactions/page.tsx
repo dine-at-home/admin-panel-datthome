@@ -1,230 +1,244 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { authService } from '@/lib/auth'
-import { getApiUrl } from '@/lib/api-config'
-import { Search, X, CreditCard } from 'lucide-react'
+import { apiGetPaginated, fmtMoney, fmtDateTime } from '@/lib/api'
+import { StatusPill } from '@/components/StatusPill'
+import { Search, X, CreditCard, Banknote, ChevronRight } from 'lucide-react'
 
-interface Payment {
+interface UnifiedTxn {
+  kind: 'payment' | 'payout'
   id: string
+  createdAt: string
+  status: string
   amount: number
   currency: string
-  status: string
-  platformFee: number
-  hostAmount: number
-  refundedAmount: number
-  refundedAt: string | null
-  createdAt: string
-  booking: {
-    id: string
-    guests: number
-    totalPrice: number
-    status: string
-    user: { id: string; email: string; name: string | null }
-    dinner: {
-      id: string
-      title: string
-      date: string
-      host: { id: string; name: string | null; email: string }
-    }
-  }
-}
-
-const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
-  SUCCEEDED: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-  PENDING: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-400' },
-  FAILED: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
-  REFUNDED: { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' },
-  PARTIALLY_REFUNDED: { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-400' },
-  CAPTURED: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
-}
-
-function StatusPill({ status }: { status: string }) {
-  const s = STATUS_STYLES[status] ?? { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' }
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {status.replace(/_/g, ' ')}
-    </span>
-  )
-}
-
-function fmt(amount: number, currency: string) {
-  return new Intl.NumberFormat('is-IS', {
-    style: 'currency',
-    currency: currency.toUpperCase() || 'ISK',
-    maximumFractionDigits: 0,
-  }).format(amount)
+  paystraxId: string | null
+  bookingId?: string
+  guest?: { id: string; name: string | null; email: string }
+  dinnerTitle?: string
+  hostId?: string | null
+  refundedAmount?: number
+  host?: { id: string; name: string | null; email: string; payoutCardLast4: string | null; payoutCardBrand: string | null }
+  bookingIds?: string[]
+  failureMessage?: string | null
 }
 
 export default function TransactionsPage() {
   const router = useRouter()
-  const [payments, setPayments] = useState<Payment[]>([])
+  const [items, setItems] = useState<UnifiedTxn[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [kindFilter, setKindFilter] = useState<'all' | 'payment' | 'payout'>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
-  const [error, setError] = useState('')
+  const [err, setErr] = useState('')
+
+  const reload = useCallback(async () => {
+    try {
+      setLoading(true)
+      setErr('')
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '25',
+        kind: kindFilter,
+        ...(search ? { search } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
+      })
+      const res = await apiGetPaginated<UnifiedTxn>(`/admin/transactions/all?${params}`)
+      setItems(res.items)
+      setTotalPages(res.totalPages)
+      setTotal(res.total)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to load transactions')
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, statusFilter, kindFilter])
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
       router.push('/login')
       return
     }
-    fetchPayments()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, page, search, statusFilter])
+    reload()
+  }, [router, reload])
 
-  const fetchPayments = async () => {
-    try {
-      setLoading(true)
-      setError('')
-      const headers = authService.getAuthHeaders()
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '25',
-        ...(search && { search }),
-        ...(statusFilter && { status: statusFilter }),
-      })
-      const res = await fetch(getApiUrl(`/admin/transactions?${params}`), { headers })
-      if (res.status === 401) {
-        authService.removeToken()
-        router.push('/login')
-        return
-      }
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || 'Failed to fetch')
-      setPayments(data.data || [])
-      setTotalPages(data.pagination?.totalPages || 1)
-      setTotal(data.pagination?.total || 0)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load transactions')
-    } finally {
-      setLoading(false)
-    }
+  const handleRowClick = (t: UnifiedTxn) => {
+    if (t.kind === 'payment') router.push(`/dashboard/transactions/${t.id}`)
+    else router.push(`/dashboard/payouts/${t.id}`)
   }
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Transactions</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{total} total payments</p>
+          <p className="text-sm text-slate-500 mt-0.5">{total} payments + payouts</p>
         </div>
+        <Link href="/dashboard/logs" className="text-sm text-orange-600 hover:underline">
+          Audit log →
+        </Link>
       </div>
 
-      {/* Filters */}
       <div className="bg-white border border-slate-100 rounded-xl shadow-sm p-4 mb-4 flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search guest, host, dinner…"
+            placeholder="Search Paystrax id, guest, host…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
             className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+            >
               <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
             </button>
           )}
         </div>
         <select
+          value={kindFilter}
+          onChange={(e) => {
+            setKindFilter(e.target.value as 'all' | 'payment' | 'payout')
+            setPage(1)
+          }}
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
+        >
+          <option value="all">All transactions</option>
+          <option value="payment">Payments only</option>
+          <option value="payout">Payouts only</option>
+        </select>
+        <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
-          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 bg-white"
+          onChange={(e) => {
+            setStatusFilter(e.target.value)
+            setPage(1)
+          }}
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400"
         >
           <option value="">All statuses</option>
           <option value="SUCCEEDED">Succeeded</option>
           <option value="PENDING">Pending</option>
-          <option value="CAPTURED">Captured</option>
+          <option value="PROCESSING">Processing</option>
+          <option value="FAILED">Failed</option>
           <option value="REFUNDED">Refunded</option>
           <option value="PARTIALLY_REFUNDED">Partially Refunded</option>
-          <option value="FAILED">Failed</option>
+          <option value="PENDING_SETTLEMENT">Pending settlement</option>
+          <option value="IN_TRANSIT">In transit</option>
+          <option value="PAID">Paid</option>
+          <option value="ON_HOLD">On hold</option>
         </select>
       </div>
 
-      {error && (
-        <div className="mb-4 bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-lg">
-          {error}
-        </div>
+      {err && (
+        <div className="mb-4 bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-lg">{err}</div>
       )}
 
-      {/* Table */}
       <div className="bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : payments.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-400">
             <CreditCard className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm font-medium">No transactions found</p>
+            <p className="text-sm font-medium">No transactions</p>
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">ID</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Guest</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Dinner / Host</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Amount</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Fee (20%)</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Host net</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Date</th>
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <tr>
+                <th className="text-left px-4 py-3">Type</th>
+                <th className="text-left px-4 py-3">Status</th>
+                <th className="text-left px-4 py-3">Counterparty</th>
+                <th className="text-left px-4 py-3">Reference</th>
+                <th className="text-right px-4 py-3">Amount</th>
+                <th className="text-left px-4 py-3">Created</th>
+                <th></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {payments.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+              {items.map((t) => (
+                <tr
+                  key={`${t.kind}-${t.id}`}
+                  onClick={() => handleRowClick(t)}
+                  className="hover:bg-slate-50/50 cursor-pointer"
+                >
                   <td className="px-4 py-3">
-                    <span className="font-mono text-xs text-slate-400">
-                      #{p.id.slice(-7).toUpperCase()}
-                    </span>
+                    {t.kind === 'payment' ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                        <CreditCard className="w-3 h-3" /> Payment
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
+                        <Banknote className="w-3 h-3" /> Payout
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-slate-800">{p.booking.user.name || '—'}</p>
-                    <p className="text-xs text-slate-400">{p.booking.user.email}</p>
+                    <StatusPill status={t.status} />
+                    {t.refundedAmount && t.refundedAmount > 0 ? (
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Refunded {fmtMoney(t.refundedAmount, t.currency)}
+                      </p>
+                    ) : null}
+                    {t.failureMessage && (
+                      <p className="text-xs text-red-600 mt-0.5 truncate max-w-[180px]" title={t.failureMessage}>
+                        {t.failureMessage}
+                      </p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {t.kind === 'payment' && t.guest ? (
+                      <>
+                        <p className="font-medium text-slate-700">{t.guest.name || '—'}</p>
+                        <p className="text-xs text-slate-400">{t.guest.email}</p>
+                      </>
+                    ) : t.host ? (
+                      <>
+                        <p className="font-medium text-slate-700">{t.host.name || '—'}</p>
+                        <p className="text-xs text-slate-400">{t.host.email}</p>
+                      </>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-4 py-3 max-w-[200px]">
-                    <p className="font-medium text-slate-800 truncate">{p.booking.dinner.title}</p>
-                    <p className="text-xs text-slate-400 truncate">
-                      {p.booking.dinner.host.name || p.booking.dinner.host.email}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusPill status={p.status} />
-                    {p.refundedAmount > 0 && (
-                      <p className="text-xs text-slate-400 mt-1">
-                        Refunded {fmt(p.refundedAmount, p.currency)}
-                      </p>
+                    {t.dinnerTitle ? (
+                      <>
+                        <p className="text-slate-700 truncate">{t.dinnerTitle}</p>
+                        <p className="text-xs text-slate-400 truncate font-mono">{t.paystraxId || '—'}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-slate-700">
+                          {t.bookingIds?.length || 0} booking{t.bookingIds?.length === 1 ? '' : 's'}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate font-mono">{t.paystraxId || '—'}</p>
+                      </>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span className="font-semibold text-slate-900 tabular-nums">
-                      {fmt(p.amount, p.currency)}
-                    </span>
-                    <p className="text-xs text-slate-400">{p.booking.guests} guest{p.booking.guests !== 1 ? 's' : ''}</p>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="text-slate-600 tabular-nums">
-                      {fmt(p.platformFee ?? p.amount * 0.2, p.currency)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="text-emerald-600 font-medium tabular-nums">
-                      {fmt(p.hostAmount ?? p.amount * 0.8, p.currency)}
+                      {fmtMoney(t.amount, t.currency)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <p className="text-slate-700">{new Date(p.createdAt).toLocaleDateString()}</p>
-                    <p className="text-xs text-slate-400">{new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <span className="text-slate-700 text-xs">{fmtDateTime(t.createdAt)}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
                   </td>
                 </tr>
               ))}
@@ -233,7 +247,6 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
           <p className="text-sm text-slate-500">
@@ -243,14 +256,14 @@ export default function TransactionsPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-40"
             >
               Previous
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-40"
             >
               Next
             </button>

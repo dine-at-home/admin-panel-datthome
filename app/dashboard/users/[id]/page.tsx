@@ -153,6 +153,12 @@ export default function UserDetailPage() {
           <ArrowLeft className="h-5 w-5 mr-2" />
           Back to Users
         </button>
+        <button
+          onClick={() => router.push(`/dashboard/users/${userId}/activity`)}
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+        >
+          View full activity timeline →
+        </button>
       </div>
 
       {/* User Profile Card */}

@@ -14,6 +14,7 @@ import {
   Ticket,
   CreditCard,
   ChevronRight,
+  ScrollText,
 } from 'lucide-react'
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/dashboard/payouts', label: 'Payouts', icon: Banknote },
   { href: '/dashboard/users', label: 'Users', icon: Users },
   { href: '/dashboard/dinners', label: 'Dinners', icon: UtensilsCrossed },
+  { href: '/dashboard/logs', label: 'Audit log', icon: ScrollText },
   { href: '/dashboard/ads', label: 'Ads', icon: Megaphone },
 ]
 

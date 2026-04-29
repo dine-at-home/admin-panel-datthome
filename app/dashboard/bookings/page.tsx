@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authService } from '@/lib/auth'
 import { getApiUrl } from '@/lib/api-config'
-import { Search, X, Ticket, Ban } from 'lucide-react'
+import { Search, X, Ticket, ChevronRight } from 'lucide-react'
 
 interface Booking {
   id: string
@@ -14,7 +14,8 @@ interface Booking {
   totalPrice: number
   currency: string
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
-  paymentStatus: string
+  // Backend returns the payment relation as `payment`, not as a flat `paymentStatus`.
+  payment?: { status: string; amount: number; currency: string } | null
   createdAt: string
 }
 
@@ -84,19 +85,6 @@ export default function BookingsPage() {
     }
   }
 
-  const handleCancel = async (id: string) => {
-    if (!confirm('Cancel this booking? This cannot be undone.')) return
-    try {
-      const headers = authService.getAuthHeaders()
-      const res = await fetch(getApiUrl(`/admin/bookings/${id}/cancel`), { method: 'PUT', headers })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || 'Failed')
-      fetchBookings()
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to cancel')
-    }
-  }
-
   return (
     <div>
       <div className="mb-6">
@@ -163,7 +151,11 @@ export default function BookingsPage() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {bookings.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr
+                  key={b.id}
+                  onClick={() => router.push(`/dashboard/bookings/${b.id}`)}
+                  className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                >
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs text-slate-400">#{b.id.slice(-7).toUpperCase()}</span>
                   </td>
@@ -177,9 +169,13 @@ export default function BookingsPage() {
                   </td>
                   <td className="px-4 py-3"><StatusPill status={b.status} /></td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${PAYMENT_BADGE[b.paymentStatus] ?? 'bg-slate-100 text-slate-600'}`}>
-                      {b.paymentStatus || 'N/A'}
-                    </span>
+                    {b.payment ? (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${PAYMENT_BADGE[b.payment.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                        {b.payment.status}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">N/A</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span className="font-semibold text-slate-900 tabular-nums">
@@ -190,15 +186,8 @@ export default function BookingsPage() {
                   <td className="px-4 py-3">
                     <p className="text-slate-700">{new Date(b.createdAt).toLocaleDateString()}</p>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    {b.status !== 'CANCELLED' && (
-                      <button
-                        onClick={() => handleCancel(b.id)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-                      >
-                        <Ban className="w-3 h-3" /> Cancel
-                      </button>
-                    )}
+                  <td className="px-4 py-3">
+                    <ChevronRight className="w-4 h-4 text-slate-300" />
                   </td>
                 </tr>
               ))}
