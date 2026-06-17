@@ -65,6 +65,12 @@ interface PayoutDetail {
       id: string
       name: string | null
       email: string
+      // Manual bank-transfer payout details (current model).
+      bankAccountHolder: string | null
+      iban: string | null
+      bankSwiftBic: string | null
+      bankName: string | null
+      // Card-payout (OCT) fields — DISABLED, kept for legacy records.
       accountHolderName: string | null
       payoutAddress: string | null
       payoutCardBrand: string | null
@@ -157,11 +163,13 @@ export default function PayoutDetailPage() {
   const p = data.payout
   const canHold = p.status === 'PENDING_SETTLEMENT'
   const canRelease = p.status === 'ON_HOLD'
-  const canRetry = p.status === 'FAILED'
-  const canDisburse = p.status === 'PENDING_SETTLEMENT'
   const canCancel = p.status === 'PENDING_SETTLEMENT' || p.status === 'ON_HOLD' || p.status === 'FAILED'
-  const canRefresh = Boolean(p.paystraxPayoutPaymentId) && (p.status === 'IN_TRANSIT' || p.status === 'PENDING_SETTLEMENT')
   const canMarkPaid = p.status !== 'PAID' && p.status !== 'CANCELED'
+  // DISABLED — card OCT actions. Payouts are settled manually via bank transfer; these endpoints
+  // are turned off on the backend (see PAYIN_MANUAL_PAYOUT_PLAN.md). Use "Mark as paid" instead.
+  const canRetry = false
+  const canDisburse = false
+  const canRefresh = false
 
   return (
     <div className="space-y-6">
@@ -355,16 +363,18 @@ export default function PayoutDetailPage() {
         </Link>
 
         <div className="bg-white border border-slate-100 rounded-xl shadow-sm p-4">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Payout card</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Bank account</p>
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-slate-400" />
             <span className="font-medium text-slate-900">
-              {p.host.payoutCardBrand || '—'} •••• {p.host.payoutCardLast4 || '????'}
+              {p.host.bankAccountHolder || '—'}
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">{p.host.accountHolderName || '—'}</p>
-          <p className="text-xs text-slate-400 mt-2 font-mono break-all">
-            {p.host.paystraxCardRegistrationId || 'no token'}
+          <p className="text-xs text-slate-500 mt-1 font-mono break-all">
+            {p.host.iban || 'no IBAN on file'}
+          </p>
+          <p className="text-xs text-slate-400 mt-2">
+            {[p.host.bankSwiftBic, p.host.bankName].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
 
