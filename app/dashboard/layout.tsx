@@ -15,6 +15,7 @@ import {
   CreditCard,
   ChevronRight,
   ScrollText,
+  ShieldCheck,
 } from 'lucide-react'
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { href: '/dashboard/transactions', label: 'Transactions', icon: CreditCard },
   { href: '/dashboard/bookings', label: 'Bookings', icon: Ticket },
   { href: '/dashboard/payouts', label: 'Payouts', icon: Banknote },
+  { href: '/dashboard/verifications', label: 'Verifications', icon: ShieldCheck },
   { href: '/dashboard/users', label: 'Users', icon: Users },
   { href: '/dashboard/dinners', label: 'Dinners', icon: UtensilsCrossed },
   { href: '/dashboard/logs', label: 'Audit log', icon: ScrollText },
