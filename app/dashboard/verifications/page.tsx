@@ -18,10 +18,14 @@ interface PendingHost {
   bankName: string | null
   bankSwiftBic: string | null
   taxId: string | null
+  kycStatus: 'IN_REVIEW' | 'REJECTED'
+  kycRejectionReason: string | null
   hasEid: boolean
   hasIcelandicIban: boolean
   readyToVerify: boolean
 }
+
+type Tab = 'IN_REVIEW' | 'REJECTED'
 
 function Requirement({ met, label }: { met: boolean; label: string }) {
   return (
@@ -42,12 +46,15 @@ export default function VerificationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [tab, setTab] = useState<Tab>('IN_REVIEW')
 
-  const fetchPending = useCallback(async () => {
+  const fetchPending = useCallback(async (status: Tab) => {
     try {
       setLoading(true)
       setError('')
-      const { items } = await apiGetPaginated<PendingHost>('/admin/kyc/pending?limit=100')
+      const { items } = await apiGetPaginated<PendingHost>(
+        `/admin/kyc/pending?limit=100&status=${status}`
+      )
       setHosts(items)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load verifications')
@@ -61,8 +68,8 @@ export default function VerificationsPage() {
       router.push('/login')
       return
     }
-    fetchPending()
-  }, [router, fetchPending])
+    fetchPending(tab)
+  }, [router, fetchPending, tab])
 
   const handleVerify = async (host: PendingHost) => {
     if (!confirm(`Verify ${host.name || host.email}? They'll be able to publish dinners and receive payouts.`)) return
@@ -83,6 +90,7 @@ export default function VerificationsPage() {
     try {
       setBusyId(host.id)
       await apiSend('POST', `/admin/users/${host.id}/reject-kyc`, { reason: reason || undefined })
+      // Drops out of the "In review" tab; it now lives under "Rejected".
       setHosts((prev) => prev.filter((h) => h.id !== host.id))
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to reject')
@@ -96,8 +104,26 @@ export default function VerificationsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Host verifications</h1>
         <p className="text-sm text-slate-500 mt-0.5">
-          {hosts.length} {hosts.length === 1 ? 'host' : 'hosts'} awaiting review
+          {tab === 'IN_REVIEW'
+            ? `${hosts.length} ${hosts.length === 1 ? 'host' : 'hosts'} awaiting review`
+            : `${hosts.length} rejected ${hosts.length === 1 ? 'host' : 'hosts'}`}
         </p>
+      </div>
+
+      <div className="mb-5 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+        {(['IN_REVIEW', 'REJECTED'] as Tab[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              tab === t
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {t === 'IN_REVIEW' ? 'In review' : 'Rejected'}
+          </button>
+        ))}
       </div>
 
       {error && (
@@ -113,8 +139,14 @@ export default function VerificationsPage() {
       ) : hosts.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 bg-white border border-slate-100 rounded-xl shadow-sm text-slate-400">
           <BadgeCheck className="w-10 h-10 mb-3 opacity-30" />
-          <p className="text-sm font-medium">No hosts awaiting verification</p>
-          <p className="text-xs mt-1">New submissions will appear here.</p>
+          <p className="text-sm font-medium">
+            {tab === 'IN_REVIEW' ? 'No hosts awaiting verification' : 'No rejected hosts'}
+          </p>
+          <p className="text-xs mt-1">
+            {tab === 'IN_REVIEW'
+              ? 'New submissions will appear here.'
+              : 'Hosts you reject will appear here until they resubmit.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -133,11 +165,24 @@ export default function VerificationsPage() {
                     >
                       {host.name || '—'}
                     </Link>
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                      In review
+                    <span
+                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        host.kycStatus === 'REJECTED'
+                          ? 'bg-rose-50 text-rose-700'
+                          : 'bg-amber-50 text-amber-700'
+                      }`}
+                    >
+                      {host.kycStatus === 'REJECTED' ? 'Rejected' : 'In review'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">{host.email}</p>
+
+                  {host.kycStatus === 'REJECTED' && (
+                    <div className="mt-3 rounded-lg bg-rose-50/70 border border-rose-100 px-3 py-2 text-xs text-rose-700">
+                      <span className="font-semibold">Rejection reason: </span>
+                      {host.kycRejectionReason || 'No reason given.'}
+                    </div>
+                  )}
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Requirement met={host.hasEid} label="Identity (Auðkenni)" />
@@ -173,14 +218,16 @@ export default function VerificationsPage() {
                     <ShieldCheck className="w-4 h-4" />
                     Verify
                   </button>
-                  <button
-                    onClick={() => handleReject(host)}
-                    disabled={busyId === host.id}
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    Reject
-                  </button>
+                  {host.kycStatus !== 'REJECTED' && (
+                    <button
+                      onClick={() => handleReject(host)}
+                      disabled={busyId === host.id}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      Reject
+                    </button>
+                  )}
                 </div>
               </div>
 
