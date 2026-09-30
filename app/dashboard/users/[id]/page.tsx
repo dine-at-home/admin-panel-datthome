@@ -419,7 +419,7 @@ export default function UserDetailPage() {
                 Total Earnings
               </p>
               <p className="text-2xl font-semibold text-gray-900">
-                kr {(statistics.totalEarnings / 100).toFixed(0)}
+                kr {statistics.totalEarnings.toLocaleString('is-IS', { maximumFractionDigits: 0 })}
               </p>
             </div>
           </div>
@@ -830,7 +830,7 @@ export default function UserDetailPage() {
                         <tr key={payout.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {payout.currency.toUpperCase()}{" "}
-                            {(payout.amount / 100).toFixed(2)}
+                            {payout.amount.toLocaleString('is-IS', { maximumFractionDigits: 0 })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span

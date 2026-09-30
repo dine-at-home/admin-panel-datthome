@@ -26,6 +26,7 @@ interface Booking {
   currency: string;
   status: string;
   paymentStatus?: string;
+  payment?: { status: string; amount: number; currency: string } | null;
   createdAt: string;
   dietaryRequirements?: string;
 }
@@ -121,9 +122,11 @@ export default function DinnerDetailPage() {
     );
   }
 
+  // Same definition as the dashboard's Total Revenue: money actually charged (succeeded
+  // payments). Summing totalPrice of every non-cancelled booking counted unpaid PENDING ones.
   const totalRevenue = dinner.bookings
-    .filter((b) => b.status !== "CANCELLED")
-    .reduce((sum, b) => sum + b.totalPrice, 0);
+    .filter((b) => b.payment?.status === "SUCCEEDED")
+    .reduce((sum, b) => sum + (b.payment?.amount ?? 0), 0);
 
   return (
     <div>
