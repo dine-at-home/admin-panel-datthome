@@ -128,6 +128,9 @@ export default function DinnersPage() {
         throw new Error(data.error || "Failed to delete dinner");
       }
 
+      if (data.data?.mode === "deactivated") {
+        alert(data.message || "Dinner has booking history, so it was deactivated instead of deleted.");
+      }
       setDeleteDialog({ dinner: null, reason: "" });
       fetchDinners();
     } catch (err: any) {
